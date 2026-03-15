@@ -1,0 +1,70 @@
+# docker-compose.yml
+# Runs the full demo: 1 producer + 3 consumers with different wait strategies
+#
+# Usage:
+#   docker compose build
+#   docker compose run tests              # Run unit tests
+#   docker compose up producer consumer-spin consumer-yield consumer-block
+#
+# The producer waits for Enter — attach to it:
+#   docker attach lockfree-spmc-queue-producer-1
+#   (press Enter to start publishing)
+#
+# Cleanup:
+#   docker compose down
+
+services:
+  # ── Unit Tests ────────────────────────────────────────
+  tests:
+    build: .
+    command: ./build/test_queue
+    profiles: ["test"]
+
+  # ── Producer ──────────────────────────────────────────
+  producer:
+    build: .
+    command: ./build/lockfree_queue p
+    ipc: host
+    stdin_open: true
+    tty: true
+    volumes:
+      - /dev/shm:/dev/shm
+
+  # ── Consumer: BusySpin ────────────────────────────────
+  consumer-spin:
+    build: .
+    command: ./build/lockfree_queue c spin
+    ipc: host
+    depends_on:
+      - producer
+    volumes:
+      - /dev/shm:/dev/shm
+
+  # ── Consumer: Yielding ────────────────────────────────
+  consumer-yield:
+    build: .
+    command: ./build/lockfree_queue c yield
+    ipc: host
+    depends_on:
+      - producer
+    volumes:
+      - /dev/shm:/dev/shm
+
+  # ── Consumer: Blocking (eventfd) ──────────────────────
+  consumer-block:
+    build: .
+    command: ./build/lockfree_queue c block
+    ipc: host
+    depends_on:
+      - producer
+    volumes:
+      - /dev/shm:/dev/shm
+
+  # ── Cleanup ───────────────────────────────────────────
+  cleanup:
+    build: .
+    command: ./build/lockfree_queue x
+    ipc: host
+    profiles: ["cleanup"]
+    volumes:
+      - /dev/shm:/dev/shm
